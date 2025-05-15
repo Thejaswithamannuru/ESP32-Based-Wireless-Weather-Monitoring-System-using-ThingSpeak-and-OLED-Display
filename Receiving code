@@ -1,0 +1,70 @@
+//Receiving code
+#include <WiFi.h>
+#include <HTTPClient.h>
+#include <ArduinoJson.h>
+#include <Wire.h>
+#include<Adafruit_GFX.h>
+#include<Adafruit_SSD1306.h>
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 32
+#define OLED_RESET -1
+#define SCREEN_ADDRESS 0x3C
+Adafruit_SSD1306 display(SCREEN_WIDTH,SCREEN_HEIGHT,&Wire,OLED_RESET); 
+
+const char* ssid = "Realme 11";
+const char* password = "Theju123";
+const char* channelID = "2961431";
+const char* readAPIKey = "KNBPTWIGK7Y20P4";
+
+void setup() {
+  Serial.begin(115200);
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("WiFi connected");
+  if(!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)){
+    Serial.println(F("SSD1306 allocation failed"));
+    for(;;);
+}
+display.clearDisplay();
+display.setTextSize(1);
+display.setTextColor(SSD1306_WHITE);
+display.setCursor(0,0);
+display.display();
+}
+
+void loop() {
+  if (WiFi.status() == WL_CONNECTED) {
+    HTTPClient http;
+    String url = "http://api.thingspeak.com/channels/" + String(channelID) + "/feeds/last.json?api_key=" + readAPIKey;
+    http.begin(url);
+    int httpCode = http.GET();
+    if (httpCode == 200) {
+      String payload = http.getString();
+      DynamicJsonDocument doc(1024);
+      deserializeJson(doc, payload);
+      float temp = doc["field1"].as<float>();
+      float hum = doc["field2"].as<float>();
+
+      Serial.print("Temperature: ");
+      Serial.print(temp);
+      Serial.print("Humidity: ");
+      Serial.print(hum);
+      Serial.println(" %");
+      display.clearDisplay();
+      display.setCursor(0,3);
+      display.println("Temperature:");
+      display.setCursor(0,11);
+      display.print(temp);
+      display.setCursor(0,17);
+      display.println("Humidity:");
+      display.setCursor(0,25);
+      display.print(hum);
+      display.display();
+    }
+    http.end();
+  }
+  delay(20000); // Poll every 20 seconds
+}
